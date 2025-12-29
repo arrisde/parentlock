@@ -8,6 +8,7 @@
 #include <sys/ioctl.h>
 #include <png.h>
 #include <sys/mman.h>
+#include <libgen.h>
 
 #include <sys/types.h>
 #include <dirent.h>
@@ -25,14 +26,16 @@ struct mux_parentlock parentlock;
 
 #define MUX_PARENTAUTH "/tmp/mux_parentauth" // Muxparentlock Config Authorization
 #define MUX_PARENTLOCK_TRACKING "/tmp/mux_parenttrack" // Muxparentlock uptime tracking file (volatile)
-#define MUX_PARENTLOCK_TRACKING_POWEROFF "mux_parenttrack" // Muxparentlock uptime tracking file (volatile)
+#define MAX_PATH_LEN 256
 
-char nv_counter_file[MAX_BUFFER_SIZE] = {};
+const char* app_dir = NULL;
+char nv_counter_file[MAX_PATH_LEN] = {};
+char config_file[MAX_PATH_LEN] = {};
+char five_min_warn_icon[MAX_PATH_LEN] = {};
 
-volatile int 	exit_required = 0;
-int       		timetracker_running = 0; 
-const char *    p_code = NULL;
-int 			copy_required = 0;
+volatile int  exit_required = 0;
+int           timetracker_running = 0; 
+const char *  p_code = NULL;
 
 // This is signal safe copy file method that works across file system, unlike rename
 int copy_file(const char * old, const char * new)
@@ -48,25 +51,26 @@ int copy_file(const char * old, const char * new)
 
     close(source);
     close(dest);
+    fsync(dest);
 
 	return size;
 }
 extern void mux_signal_stop(void);
 void sighandler(int signumber)
 {
-	if (signumber == SIGTERM || signumber == SIGINT)
+    if (signumber == SIGTERM || signumber == SIGINT || signumber == SIGCONT)
 	{
 		// Need to copy the temporal file to non-volatile storage now, rename is a safe call from signal handler
-		if (copy_required) {
 			int ret = copy_file(MUX_PARENTLOCK_TRACKING, nv_counter_file); 
-			if (ret == -1) write(1, "Failed\n", sizeof("Failed\n") - 1);
+        if (ret == -1) {
+            write(1, "Failed\n", sizeof("Failed\n") - 1); 
+        }
 			else {
-				write(1, "Copied ", sizeof("Moved ") - 1);
+            write(1, "Copied ", sizeof("Copied ") - 1);
 				write(1, MUX_PARENTLOCK_TRACKING, sizeof(MUX_PARENTLOCK_TRACKING) - 1);
 				write(1, " to ", sizeof(" to ") - 1);
 				write(1, nv_counter_file, strlen(nv_counter_file));
 				write(1, "\n", 1);
-			}
 		}
 
 		exit_required = 1;
@@ -260,7 +264,7 @@ int muparentlock_main() {
 
 	init_audio();
 
-    load_parentlock(&parentlock, &device);
+    load_parentlock(&parentlock, &device, config_file);
 
 	p_code = parentlock.CODE.UNLOCK;
 
@@ -633,10 +637,10 @@ static int get_actual_counter_file(char * counter_file, size_t arr_size)
 	return 0;
 }
 
-static void warn5mnLeft()
+static void warn5MinLeft(char* icon_file)
 {
 	// Display the 5mn left sign for 5s 
-	overlay_framebuffer("/opt/muos/share/overlay/standard/5mnLeft.png", 224, 144, 5);
+    overlay_framebuffer(icon_file, 224, 144, 5);
 }
 
 static int process(void) 
@@ -676,13 +680,12 @@ static int process(void)
 			// Gremlins isn't cheating, let's clear the additional time
 			additionalTime = 0;
 		}
-		copy_required = 0;
 	}
 
 	lastBoot = now;
 
 	// Read configuration now to know what's the maximum allowed time for today
-	load_parentlock(&parentlock, &device);
+    load_parentlock(&parentlock, &device, config_file);
 	{
 		unsigned monday, tuesday, wednesday, thursday, friday, saturday, sunday;
 		sscanf(parentlock.TIMES.SUNDAY, "%u", &sunday);
@@ -755,10 +758,14 @@ static int process(void)
 		if (!file) return triggerLock();
 		fprintf(file, "%ld %u\n", lastBoot, elapsed);
 		fclose(file);
-		copy_required = 1;
 
-		if (elapsed >= maxTimeForToday) return triggerLock();
-		else if (elapsed >= fiveMinBefore && elapsed <= fiveMinBefore + 60) { warn5mnLeft(); fiveMinBefore = 86400; }
+        if (elapsed >= maxTimeForToday) {
+            copy_file(MUX_PARENTLOCK_TRACKING, nv_counter_file); 
+            return triggerLock();
+        }
+        else if (elapsed >= fiveMinBefore && elapsed <= fiveMinBefore + 60) { 
+            warn5MinLeft(five_min_warn_icon); fiveMinBefore = 86400; 
+        }
 	}
 	return 0;
 }
@@ -1078,7 +1085,15 @@ int main(int argc, const char * argv[])
 		load_config_old(&config);
 	}
 
-	int written = snprintf(nv_counter_file, sizeof(nv_counter_file), "%s/%s/parent_ctr.txt", device.STORAGE.ROM.MOUNT, MUOS_INFO_PATH);
+    char buf[MAX_PATH_LEN] = {};
+    size_t exe_path_len = readlink("/proc/self/exe", buf, sizeof(buf)-1);
+    app_dir = dirname(buf);
+    LOG_INFO("muparentlock", "App directory: %s", app_dir);
+
+    snprintf(five_min_warn_icon, sizeof(five_min_warn_icon), "%s/5mnLeft.png", app_dir);
+    snprintf(config_file, sizeof(config_file), "%s/parent_lock.ini", app_dir);
+    
+    int written = snprintf(nv_counter_file, sizeof(nv_counter_file), "%s/parent_ctr.txt", app_dir);
 	if (written < 0 || (size_t) written >= sizeof(nv_counter_file)) {
 		perror("Cannot create counter file path");
 		return 1;
@@ -1092,6 +1107,7 @@ int main(int argc, const char * argv[])
 	// Ok, run now
 	signal(SIGTERM, sighandler);
 	signal(SIGINT, sighandler);
+    signal(SIGCONT, sighandler);
 
 	LOG_DEBUG("muparentlock", "Creating parent lock process")
 	return process();

@@ -94,14 +94,12 @@ notify:
 
 archive:
 	-rm -r archive
-	-mkdir -p archive/mnt/mmc/MUOS/application/ParentLock/
-	-cp bin/muparentlock archive/mnt/mmc/MUOS/application/ParentLock/
-	-cp install.md archive/mnt/mmc/MUOS/application/ParentLock/
-	-mkdir -p archive/mnt/mmc/MUOS/info/
-	-cp parent_lock.ini archive/mnt/mmc/MUOS/info/
-	-mkdir -p archive/opt/muos/share/overlay/standard/
-	-cp 5mnLeft.png archive/opt/muos/share/overlay/standard/
-	-mkdir -p archive/run/muos/storage/init/
-	-cp plock.sh archive/run/muos/storage/init/
+	-mkdir -p archive/application/ParentLock/
+	-cp bin/muparentlock archive/application/ParentLock/
+	-cp install.md archive/application/ParentLock/
+	-cp parent_lock.ini archive/application/ParentLock/
+	-cp 5mnLeft.png archive/application/ParentLock/
+	-mkdir -p archive/init/
+	-cp plock.sh archive/init/
 	@printf "Creating archive for MuOS now\n"
 	-(cd archive && zip ../parentlock.muxzip -r .)

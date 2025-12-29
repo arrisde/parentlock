@@ -26,4 +26,4 @@ struct mux_parentlock {
     } TIMES;
 };
 
-void load_parentlock(struct mux_parentlock *parentlock, struct mux_device *device);
+void load_parentlock(struct mux_parentlock *parentlock, struct mux_device *device, const char* config_file);

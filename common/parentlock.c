@@ -5,12 +5,7 @@
 #include "device.h"
 #include "mini/mini.h"
 
-void load_parentlock(struct mux_parentlock *parlock, struct mux_device *device) {
-    char parlock_file[MAX_BUFFER_SIZE];
-    int written = snprintf(parlock_file, sizeof(parlock_file), "%s/%s/parent_lock.ini",
-                           device->STORAGE.ROM.MOUNT, MUOS_INFO_PATH);
-
-    if (written < 0 || (size_t) written >= sizeof(parlock_file)) exit(1);
+void load_parentlock(struct mux_parentlock *parlock, struct mux_device *device, const char* parlock_file) {
 
     mini_t *muos_pass = mini_try_load(parlock_file);
     if (!muos_pass) {
