@@ -40,12 +40,12 @@ const char *  p_code = NULL;
 // This is signal safe copy file method that works across file system, unlike rename
 int copy_file(const char * old, const char * new)
 {
-	int source = open(old, O_RDONLY, 0);
+    int source = open(old, O_RDONLY, 0);
     int dest = open(new, O_WRONLY | O_CREAT /*| O_TRUNC*/, 0644);
-	if (source == -1 || dest == -1) return -1;
+    if (source == -1 || dest == -1) return -1;
 
-	char buf[256] = {};
-	size_t size = 0;
+    char buf[256] = {};
+    size_t size = 0;
     while ((size = read(source, buf, sizeof(buf))) > 0)
         write(dest, buf, size);
 
@@ -53,38 +53,38 @@ int copy_file(const char * old, const char * new)
     close(dest);
     fsync(dest);
 
-	return size;
+    return size;
 }
 extern void mux_signal_stop(void);
 void sighandler(int signumber)
 {
     if (signumber == SIGTERM || signumber == SIGINT || signumber == SIGCONT)
-	{
-		// Need to copy the temporal file to non-volatile storage now, rename is a safe call from signal handler
-			int ret = copy_file(MUX_PARENTLOCK_TRACKING, nv_counter_file); 
+    {
+        // Need to copy the temporal file to non-volatile storage now, rename is a safe call from signal handler
+        int ret = copy_file(MUX_PARENTLOCK_TRACKING, nv_counter_file); 
         if (ret == -1) {
             write(1, "Failed\n", sizeof("Failed\n") - 1); 
         }
-			else {
+        else {
             write(1, "Copied ", sizeof("Copied ") - 1);
-				write(1, MUX_PARENTLOCK_TRACKING, sizeof(MUX_PARENTLOCK_TRACKING) - 1);
-				write(1, " to ", sizeof(" to ") - 1);
-				write(1, nv_counter_file, strlen(nv_counter_file));
-				write(1, "\n", 1);
-		}
+            write(1, MUX_PARENTLOCK_TRACKING, sizeof(MUX_PARENTLOCK_TRACKING) - 1);
+            write(1, " to ", sizeof(" to ") - 1);
+            write(1, nv_counter_file, strlen(nv_counter_file));
+            write(1, "\n", 1);
+        }
 
-		exit_required = 1;
-		mux_signal_stop(); // Calling mux_input_stop here isn't safe since it tries to join threads, but mux_signal_stop is (or should be)
-	}
-	if (signumber == SIGINT)
-	{
-		write(1, "Exiting\n", sizeof("Exiting\n") - 1);
-	}
+        exit_required = 1;
+        mux_signal_stop(); // Calling mux_input_stop here isn't safe since it tries to join threads, but mux_signal_stop is (or should be)
+    }
+    if (signumber == SIGINT)
+    {
+        write(1, "Exiting\n", sizeof("Exiting\n") - 1);
+    }
 }
 
 void shutdown_now()
 {
-	system("/opt/muos/script/mux/quit.sh poweroff frontend");
+    system("/opt/muos/script/mux/quit.sh poweroff frontend");
 }
 
 #define UI_COUNT 4
@@ -126,23 +126,13 @@ static void handle_confirm(void) {
     }
 }
 
-static void handle_back(void) {
-    play_sound(SND_BACK, 0);
-
-	
-    exit_status_muxparentlock = 2;
-    close_input();
-    mux_input_stop();
-}
-
 static void handle_shutdown(void) {
 
     exit_status_muxparentlock = 2;
     close_input();
     mux_input_stop();
 }
-	
-
+    
 static void handle_up(void) {
     play_sound(SND_NAVIGATE, 0);
 
@@ -189,13 +179,10 @@ static void init_elements() {
     process_visual_element(BATTERY, ui_staCapacity);
 
     lv_label_set_text(ui_lblNavA, lang.GENERIC.SELECT);
-    lv_label_set_text(ui_lblNavB, lang.MUXLAUNCH.SHORT.SHUTDOWN);
-
+    
     lv_obj_t *nav_hide[] = {
             ui_lblNavAGlyph,
-            ui_lblNavA,
-            ui_lblNavBGlyph,
-            ui_lblNavB
+            ui_lblNavA
     };
 
     for (int i = 0; i < sizeof(nav_hide) / sizeof(nav_hide[0]); i++) {
@@ -212,27 +199,27 @@ static void init_elements() {
 
 #define ArrSz(X)	sizeof(X)/sizeof(X[0])
 void apply_parentlock_theme(lv_obj_t *ui_rolComboOne, lv_obj_t *ui_rolComboTwo, lv_obj_t *ui_rolComboThree, lv_obj_t *ui_rolComboFour) {
-	lv_obj_t * elements[] = {
-		ui_rolComboOne,
-		ui_rolComboTwo,
-		ui_rolComboThree,
-		ui_rolComboFour,
-	};
-	for (size_t i = 0; i < ArrSz(elements); i++) {
-		lv_obj_set_style_text_color(elements[i], lv_color_hex(theme.ROLL.TEXT), LV_PART_MAIN | LV_STATE_DEFAULT);
-		lv_obj_set_style_text_color(elements[i], lv_color_hex(theme.ROLL.SELECT_TEXT), LV_PART_SELECTED | LV_STATE_DEFAULT);
-		lv_obj_set_style_text_opa(elements[i], theme.ROLL.TEXT_ALPHA, LV_PART_MAIN | LV_STATE_DEFAULT);
-		lv_obj_set_style_text_opa(elements[i], theme.ROLL.SELECT_TEXT_ALPHA, LV_PART_SELECTED | LV_STATE_DEFAULT);
-		lv_obj_set_style_bg_color(elements[i], lv_color_hex(theme.ROLL.BACKGROUND), LV_PART_SELECTED | LV_STATE_DEFAULT);
-		lv_obj_set_style_bg_opa(elements[i], theme.ROLL.BACKGROUND_ALPHA, LV_PART_SELECTED | LV_STATE_DEFAULT);
-		lv_obj_set_style_bg_color(elements[i], lv_color_hex(theme.ROLL.SELECT_BACKGROUND), LV_PART_SELECTED | LV_STATE_FOCUSED);
-		lv_obj_set_style_bg_opa(elements[i], theme.ROLL.SELECT_BACKGROUND_ALPHA, LV_PART_SELECTED | LV_STATE_FOCUSED);
-		lv_obj_set_style_radius(elements[i], theme.ROLL.RADIUS, LV_PART_SELECTED | LV_STATE_DEFAULT);
-		lv_obj_set_style_radius(elements[i], theme.ROLL.SELECT_RADIUS, LV_PART_SELECTED | LV_STATE_FOCUSED);
-		lv_obj_set_style_radius(elements[i], theme.ROLL.BORDER_RADIUS, LV_PART_MAIN | LV_STATE_FOCUSED);
-		lv_obj_set_style_outline_color(elements[i], lv_color_hex(theme.ROLL.BORDER_COLOUR), LV_PART_MAIN | LV_STATE_FOCUSED);
-		lv_obj_set_style_outline_opa(elements[i], theme.ROLL.BORDER_ALPHA, LV_PART_MAIN | LV_STATE_FOCUSED);
-	}
+    lv_obj_t * elements[] = {
+        ui_rolComboOne,
+        ui_rolComboTwo,
+        ui_rolComboThree,
+        ui_rolComboFour,
+    };
+    for (size_t i = 0; i < ArrSz(elements); i++) {
+        lv_obj_set_style_text_color(elements[i], lv_color_hex(theme.ROLL.TEXT), LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_text_color(elements[i], lv_color_hex(theme.ROLL.SELECT_TEXT), LV_PART_SELECTED | LV_STATE_DEFAULT);
+        lv_obj_set_style_text_opa(elements[i], theme.ROLL.TEXT_ALPHA, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_text_opa(elements[i], theme.ROLL.SELECT_TEXT_ALPHA, LV_PART_SELECTED | LV_STATE_DEFAULT);
+        lv_obj_set_style_bg_color(elements[i], lv_color_hex(theme.ROLL.BACKGROUND), LV_PART_SELECTED | LV_STATE_DEFAULT);
+        lv_obj_set_style_bg_opa(elements[i], theme.ROLL.BACKGROUND_ALPHA, LV_PART_SELECTED | LV_STATE_DEFAULT);
+        lv_obj_set_style_bg_color(elements[i], lv_color_hex(theme.ROLL.SELECT_BACKGROUND), LV_PART_SELECTED | LV_STATE_FOCUSED);
+        lv_obj_set_style_bg_opa(elements[i], theme.ROLL.SELECT_BACKGROUND_ALPHA, LV_PART_SELECTED | LV_STATE_FOCUSED);
+        lv_obj_set_style_radius(elements[i], theme.ROLL.RADIUS, LV_PART_SELECTED | LV_STATE_DEFAULT);
+        lv_obj_set_style_radius(elements[i], theme.ROLL.SELECT_RADIUS, LV_PART_SELECTED | LV_STATE_FOCUSED);
+        lv_obj_set_style_radius(elements[i], theme.ROLL.BORDER_RADIUS, LV_PART_MAIN | LV_STATE_FOCUSED);
+        lv_obj_set_style_outline_color(elements[i], lv_color_hex(theme.ROLL.BORDER_COLOUR), LV_PART_MAIN | LV_STATE_FOCUSED);
+        lv_obj_set_style_outline_opa(elements[i], theme.ROLL.BORDER_ALPHA, LV_PART_MAIN | LV_STATE_FOCUSED);
+    }
 }
 
 void init_audio() {
@@ -262,11 +249,11 @@ int muparentlock_main() {
     init_theme(0, 0);
     init_display();
 
-	init_audio();
+    init_audio();
 
     load_parentlock(&parentlock, &device, config_file);
 
-	p_code = parentlock.CODE.UNLOCK;
+    p_code = parentlock.CODE.UNLOCK;
 
     if (strcasecmp(p_code, "0000") == 0) {
         return 1;
@@ -298,12 +285,11 @@ int muparentlock_main() {
             .swap_axis = (theme.MISC.NAVIGATION_TYPE == 1),
             .press_handler = {
                     [MUX_INPUT_A] = handle_confirm,
-                    [MUX_INPUT_B] = handle_back,
                     [MUX_INPUT_DPAD_UP] = handle_up,
                     [MUX_INPUT_DPAD_DOWN] = handle_down,
                     [MUX_INPUT_DPAD_LEFT] = handle_left,
                     [MUX_INPUT_DPAD_RIGHT] = handle_right,
-					[MUX_INPUT_POWER_SHORT] = handle_shutdown,
+                    [MUX_INPUT_POWER_SHORT] = handle_shutdown,
             },
             .hold_handler = {
                     [MUX_INPUT_DPAD_UP] = handle_up,
@@ -313,15 +299,15 @@ int muparentlock_main() {
             }
     };
     init_input(&input_opts, true);
-	
-	// Grab the input so the other PID don't see the event
-	ioctl(input_opts.general_fd, EVIOCGRAB, 1);
+    
+    // Grab the input so the other PID don't see the event
+    ioctl(input_opts.general_fd, EVIOCGRAB, 1);
 
     mux_input_task(&input_opts);
-	
-	// Ungrab the input so the other PID can resume seeing the events
-	ioctl(input_opts.general_fd, EVIOCGRAB, 0);
-	LOG_DEBUG("muparentlock", "Exiting from lockscreen with %d", exit_status_muxparentlock)
+    
+    // Ungrab the input so the other PID can resume seeing the events
+    ioctl(input_opts.general_fd, EVIOCGRAB, 0);
+    LOG_DEBUG("muparentlock", "Exiting from lockscreen with %d", exit_status_muxparentlock)
 
     return exit_status_muxparentlock;
 }
@@ -360,7 +346,7 @@ static pid_t find_pid_using (const char * filename, pid_t previous) {
     if (proc_dir == NULL) return 0;
 
     struct dirent * proc_ent = readdir (proc_dir);
-	int found_prev = previous ? 0 : 1;
+    int found_prev = previous ? 0 : 1;
     while (proc_ent != NULL)
     {
         char junk;
@@ -370,9 +356,9 @@ static pid_t find_pid_using (const char * filename, pid_t previous) {
             char fd_dir_to_scan[PATH_MAX];
             snprintf (fd_dir_to_scan, sizeof (fd_dir_to_scan), "/proc/%s/fd", proc_ent->d_name);
             if (has_file_in_dir(fd_dir_to_scan, filename)) {
-				if (found_prev) return pid;
-				if (pid == previous) found_prev = 1;
-			}
+                if (found_prev) return pid;
+                if (pid == previous) found_prev = 1;
+            }
         }
 
         proc_ent = readdir (proc_dir);
@@ -383,13 +369,13 @@ static pid_t find_pid_using (const char * filename, pid_t previous) {
 }
 
 static pid_t kill_users_of(const char * filename, int sig) {
-	pid_t pid = find_pid_using(filename, 0);
-	while (pid)
-	{
-		if (pid != getpid()) kill(pid, sig);
-		pid = find_pid_using(filename, pid);
-	}
-	return pid;
+    pid_t pid = find_pid_using(filename, 0);
+    while (pid)
+    {
+        if (pid != getpid()) kill(pid, sig);
+        pid = find_pid_using(filename, pid);
+    }
+    return pid;
 }
 
 typedef struct {
@@ -500,7 +486,7 @@ int overlay_framebuffer(const char * overlay_filename, const int pos_x, const in
     get_active_area_framebuffer(&fb, &offset, &size, &stride, 0);
 
     // Pause process if asked to
-	kill_users_of(device.SCREEN.DEVICE, SIGSTOP);
+    kill_users_of(device.SCREEN.DEVICE, SIGSTOP);
 
     // Save the current framebuffer content to restore afterward
     uint32_t * saved_pixels = malloc(fb.size);
@@ -550,7 +536,7 @@ int overlay_framebuffer(const char * overlay_filename, const int pos_x, const in
 
     // Finally restore the framebuffer to what it was before
     memcpy(fb.mem, saved_pixels, fb.size);
-	kill_users_of(device.SCREEN.DEVICE, SIGCONT);
+    kill_users_of(device.SCREEN.DEVICE, SIGCONT);
 
     free(rgba);
     free(saved_pixels);
@@ -564,82 +550,82 @@ int overlay_framebuffer(const char * overlay_filename, const int pos_x, const in
 // thus, the main thread should be stopped to prevent dual control of the screen and input
 static int triggerLock()
 {
-	// Upon boot, the screen is fighting for who wants to draw on it, so let's allow the other application perform its work first before stopping it
-	sleep(5); 
-	pid_t child_pid = kill_users_of(device.SCREEN.DEVICE, SIGSTOP);
+    // Upon boot, the screen is fighting for who wants to draw on it, so let's allow the other application perform its work first before stopping it
+    sleep(5); 
+    pid_t child_pid = kill_users_of(device.SCREEN.DEVICE, SIGSTOP);
 
-	// Find user of /dev/fb0 so we can pause it
-	LOG_DEBUG("muparentlock", "Triggering parental lock for child PID: %d", child_pid)
-	// Need to stop the current process
+    // Find user of /dev/fb0 so we can pause it
+    LOG_DEBUG("muparentlock", "Triggering parental lock for child PID: %d", child_pid)
+    // Need to stop the current process
 //	if (!kill(child_pid, SIGSTOP)) 
-	{
-		// Backup current framebuffer content
-		fb_info fb;
-		if (open_fb(&fb) < 0) return -1;
+    {
+        // Backup current framebuffer content
+        fb_info fb;
+        if (open_fb(&fb) < 0) return -1;
 
-		uint32_t * saved_pixels = malloc(fb.size);
-		if (saved_pixels == NULL)
-		{
-			destroy_fb(&fb);
-			perror("Not enough memory to save the current frame buffer");
-			return -1;
-		}
-		memcpy(saved_pixels, fb.mem, fb.size);
-	
-		// Clear framebuffer
-		memset(fb.mem, 0, fb.size);
+        uint32_t * saved_pixels = malloc(fb.size);
+        if (saved_pixels == NULL)
+        {
+            destroy_fb(&fb);
+            perror("Not enough memory to save the current frame buffer");
+            return -1;
+        }
+        memcpy(saved_pixels, fb.mem, fb.size);
+    
+        // Clear framebuffer
+        memset(fb.mem, 0, fb.size);
 
-		// Draw the lock screen
-		int ret = muparentlock_main();
-		LOG_DEBUG("muparentlock", "Lock screen done with %d", ret)
+        // Draw the lock screen
+        int ret = muparentlock_main();
+        LOG_DEBUG("muparentlock", "Lock screen done with %d", ret)
 
-		if (ret == 1) {
+        if (ret == 1) {
 
-		    write_text_to_file(MUX_PARENTAUTH, "w", CHAR, "");
+            write_text_to_file(MUX_PARENTAUTH, "w", CHAR, "");
 
-			// Ok, code is correct, let's restore the framebuffer here
-			memcpy(fb.mem, saved_pixels, fb.size);
-			destroy_fb(&fb);
-			kill_users_of(device.SCREEN.DEVICE, SIGCONT);
-		    return 0;
-		} else if (ret == 2) {
-			LOG_INFO("muparentlock", "Shutting down now")
-			kill_users_of(device.SCREEN.DEVICE, SIGTERM);
-			sleep(2);
-			kill_users_of(device.SCREEN.DEVICE, SIGKILL);
-			memset(fb.mem, 0, fb.size);
-			shutdown_now();
-			return 0;
-		}
-	}
-	perror("Error showing lock screen");
-	return 1; 
+            // Ok, code is correct, let's restore the framebuffer here
+            memcpy(fb.mem, saved_pixels, fb.size);
+            destroy_fb(&fb);
+            kill_users_of(device.SCREEN.DEVICE, SIGCONT);
+            return 0;
+        } else if (ret == 2) {
+            LOG_INFO("muparentlock", "Shutting down now")
+            kill_users_of(device.SCREEN.DEVICE, SIGTERM);
+            sleep(2);
+            kill_users_of(device.SCREEN.DEVICE, SIGKILL);
+            memset(fb.mem, 0, fb.size);
+            shutdown_now();
+            return 0;
+        }
+    }
+    perror("Error showing lock screen");
+    return 1; 
 }
 
 
 void muxparentlock_savetracker(void)
 {
-	if (file_exist(MUX_PARENTLOCK_TRACKING)) {
-		copy_file(MUX_PARENTLOCK_TRACKING, nv_counter_file);
-		sync();
-	}
+    if (file_exist(MUX_PARENTLOCK_TRACKING)) {
+        copy_file(MUX_PARENTLOCK_TRACKING, nv_counter_file);
+        sync();
+    }
 }
 
 static int get_actual_counter_file(char * counter_file, size_t arr_size)
 {
-	// First try the volatile version (since we prefer to save in priority to volatile mount to avoid wear on the SD card)
-	if (file_exist(MUX_PARENTLOCK_TRACKING)) {
-		strncpy(counter_file, MUX_PARENTLOCK_TRACKING, arr_size);
-		return 0;
-	}
-	// Else try the non volatile version from the SD card	
-	strncpy(counter_file, nv_counter_file, arr_size);
-	return 0;
+    // First try the volatile version (since we prefer to save in priority to volatile mount to avoid wear on the SD card)
+    if (file_exist(MUX_PARENTLOCK_TRACKING)) {
+        strncpy(counter_file, MUX_PARENTLOCK_TRACKING, arr_size);
+        return 0;
+    }
+    // Else try the non volatile version from the SD card	
+    strncpy(counter_file, nv_counter_file, arr_size);
+    return 0;
 }
 
 static void warn5MinLeft(char* icon_file)
 {
-	// Display the 5mn left sign for 5s 
+    // Display the 5mn left sign for 5s 
     overlay_framebuffer(icon_file, 224, 144, 5);
 }
 
@@ -650,114 +636,114 @@ static int process(void)
     unsigned additionalTime = 0, maxTimeForToday = 86400, fiveMinBefore = 86400;
     struct tm current;
 
-	// If parent unlocked beforehand, let's avoid the whole tracking process
-	// This file will be removed upon reboot or when leaving the config page 
-	if (file_exist(MUX_PARENTAUTH)) return 0;
-	// Save startup time (using monotonic clock that's not counting while the device is suspended)
-	clock_gettime( CLOCK_MONOTONIC, &boot );
+    // If parent unlocked beforehand, let's avoid the whole tracking process
+    // This file will be removed upon reboot or when leaving the config page 
+    if (file_exist(MUX_PARENTAUTH)) return 0;
+    // Save startup time (using monotonic clock that's not counting while the device is suspended)
+    clock_gettime( CLOCK_MONOTONIC, &boot );
 
-	// Load the last boot time file, to avoid gremlins from shutting down the device to reset the counter
-	char counter_file[MAX_BUFFER_SIZE];
-	if (get_actual_counter_file(counter_file, sizeof(counter_file))) return triggerLock();
+    // Load the last boot time file, to avoid gremlins from shutting down the device to reset the counter
+    char counter_file[MAX_BUFFER_SIZE];
+    if (get_actual_counter_file(counter_file, sizeof(counter_file))) return triggerLock();
 
-	// We need to know what day of week we are
-	time_t now = time(NULL);
-	if (!localtime_r(&now, &current)) return triggerLock();
+    // We need to know what day of week we are
+    time_t now = time(NULL);
+    if (!localtime_r(&now, &current)) return triggerLock();
 
     if (file_exist(counter_file)) {
-		
-		struct tm previous;
-		char * prev_run = read_line_char_from(counter_file, 1);
+        
+        struct tm previous;
+        char * prev_run = read_line_char_from(counter_file, 1);
 
-		LOG_INFO("muparentlock", "Loading time tracker from %s: %s", counter_file, prev_run)
-		if (sscanf(prev_run, "%ld %u", &lastBoot, &additionalTime) != 2) { free(prev_run); return triggerLock(); }
-		free(prev_run);
+        LOG_INFO("muparentlock", "Loading time tracker from %s: %s", counter_file, prev_run)
+        if (sscanf(prev_run, "%ld %u", &lastBoot, &additionalTime) != 2) { free(prev_run); return triggerLock(); }
+        free(prev_run);
 
-		if (!localtime_r(&lastBoot, &previous)) return triggerLock();
+        if (!localtime_r(&lastBoot, &previous)) return triggerLock();
 
-		// Get current day of week and check if it's valid
-		if (previous.tm_wday != current.tm_wday || previous.tm_mday != current.tm_mday || previous.tm_mon != current.tm_mon) {
-			// Gremlins isn't cheating, let's clear the additional time
-			additionalTime = 0;
-		}
-	}
+        // Get current day of week and check if it's valid
+        if (previous.tm_wday != current.tm_wday || previous.tm_mday != current.tm_mday || previous.tm_mon != current.tm_mon) {
+            // Gremlins isn't cheating, let's clear the additional time
+            additionalTime = 0;
+        }
+    }
 
-	lastBoot = now;
+    lastBoot = now;
 
-	// Read configuration now to know what's the maximum allowed time for today
+    // Read configuration now to know what's the maximum allowed time for today
     load_parentlock(&parentlock, &device, config_file);
-	{
-		unsigned monday, tuesday, wednesday, thursday, friday, saturday, sunday;
-		sscanf(parentlock.TIMES.SUNDAY, "%u", &sunday);
-		sscanf(parentlock.TIMES.MONDAY, "%u", &monday);
-		sscanf(parentlock.TIMES.TUESDAY, "%u", &tuesday);
-		sscanf(parentlock.TIMES.WEDNESDAY, "%u", &wednesday);
-		sscanf(parentlock.TIMES.THURSDAY, "%u", &thursday);
-		sscanf(parentlock.TIMES.FRIDAY, "%u", &friday);
-		sscanf(parentlock.TIMES.SATURDAY, "%u", &saturday);
+    {
+        unsigned monday, tuesday, wednesday, thursday, friday, saturday, sunday;
+        sscanf(parentlock.TIMES.SUNDAY, "%u", &sunday);
+        sscanf(parentlock.TIMES.MONDAY, "%u", &monday);
+        sscanf(parentlock.TIMES.TUESDAY, "%u", &tuesday);
+        sscanf(parentlock.TIMES.WEDNESDAY, "%u", &wednesday);
+        sscanf(parentlock.TIMES.THURSDAY, "%u", &thursday);
+        sscanf(parentlock.TIMES.FRIDAY, "%u", &friday);
+        sscanf(parentlock.TIMES.SATURDAY, "%u", &saturday);
 
-		LOG_INFO("muparentlock", "Parent lock times: Monday %umn, Tuesday %umn, Wednesday %umn, Thursday: %umn, Friday: %umn, Saturday: %umn, Sunday: %umn",
-				monday, tuesday, wednesday, thursday, friday, saturday, sunday)
+        LOG_INFO("muparentlock", "Parent lock times: Monday %umn, Tuesday %umn, Wednesday %umn, Thursday: %umn, Friday: %umn, Saturday: %umn, Sunday: %umn",
+                monday, tuesday, wednesday, thursday, friday, saturday, sunday)
 
-	}
+    }
 
 
-	switch (current.tm_wday)
-	{
-	case 0: // Sunday
-		sscanf(parentlock.TIMES.SUNDAY, "%u", &maxTimeForToday);
-		break;
-	case 1: // Monday
-		sscanf(parentlock.TIMES.MONDAY, "%u", &maxTimeForToday);
-		break;
-	case 2: // Tuesday
-		sscanf(parentlock.TIMES.TUESDAY, "%u", &maxTimeForToday);
-		break;
-	case 3: // Wednesday
-		sscanf(parentlock.TIMES.WEDNESDAY, "%u", &maxTimeForToday);
-		break;
-	case 4: // Thursday
-		sscanf(parentlock.TIMES.THURSDAY, "%u", &maxTimeForToday);
-		break;
-	case 5: // Friday
-		sscanf(parentlock.TIMES.FRIDAY, "%u", &maxTimeForToday);
-		break;
-	case 6: // Saturday
-		sscanf(parentlock.TIMES.SATURDAY, "%u", &maxTimeForToday);
-		break;
-	default: return triggerLock();
-	}
+    switch (current.tm_wday)
+    {
+    case 0: // Sunday
+        sscanf(parentlock.TIMES.SUNDAY, "%u", &maxTimeForToday);
+        break;
+    case 1: // Monday
+        sscanf(parentlock.TIMES.MONDAY, "%u", &maxTimeForToday);
+        break;
+    case 2: // Tuesday
+        sscanf(parentlock.TIMES.TUESDAY, "%u", &maxTimeForToday);
+        break;
+    case 3: // Wednesday
+        sscanf(parentlock.TIMES.WEDNESDAY, "%u", &maxTimeForToday);
+        break;
+    case 4: // Thursday
+        sscanf(parentlock.TIMES.THURSDAY, "%u", &maxTimeForToday);
+        break;
+    case 5: // Friday
+        sscanf(parentlock.TIMES.FRIDAY, "%u", &maxTimeForToday);
+        break;
+    case 6: // Saturday
+        sscanf(parentlock.TIMES.SATURDAY, "%u", &maxTimeForToday);
+        break;
+    default: return triggerLock();
+    }
 
-	// If 0: no limit else need to convert from min to sec
-	if (!maxTimeForToday) {
-		maxTimeForToday = 86400;
-		fiveMinBefore = 86400;
-	} else {
-		maxTimeForToday = maxTimeForToday * 60;
-		fiveMinBefore = maxTimeForToday - 300;
-	}
+    // If 0: no limit else need to convert from min to sec
+    if (!maxTimeForToday) {
+        maxTimeForToday = 86400;
+        fiveMinBefore = 86400;
+    } else {
+        maxTimeForToday = maxTimeForToday * 60;
+        fiveMinBefore = maxTimeForToday - 300;
+    }
 
-	LOG_DEBUG("muparentlock", "Parent lock process created, maxTimeForToday %u/addtime %u", maxTimeForToday, additionalTime)
+    LOG_DEBUG("muparentlock", "Parent lock process created, maxTimeForToday %u/addtime %u", maxTimeForToday, additionalTime)
 
-	// If we've already spent all time, let's lock too
-	if (additionalTime >= maxTimeForToday) return triggerLock();
+    // If we've already spent all time, let's lock too
+    if (additionalTime >= maxTimeForToday) return triggerLock();
 
-	// Main process is dumb here, we are sleeping for 1mn and take the time, 
-	// and write it to the counter or trigger the parental lock
-	while (!exit_required)
-	{
-		unsigned elapsed = 0;
-		// Wait for 1mn here or the console shutdown
-		sleep(60);
+    // Main process is dumb here, we are sleeping for 1mn and take the time, 
+    // and write it to the counter or trigger the parental lock
+    while (!exit_required)
+    {
+        unsigned elapsed = 0;
+        // Wait for 1mn here or the console shutdown
+        sleep(60);
 
-		clock_gettime( CLOCK_MONOTONIC, &cur );
+        clock_gettime( CLOCK_MONOTONIC, &cur );
 
-		elapsed = cur.tv_sec - boot.tv_sec + additionalTime;
+        elapsed = cur.tv_sec - boot.tv_sec + additionalTime;
 
-		FILE * file = fopen(MUX_PARENTLOCK_TRACKING, "w");
-		if (!file) return triggerLock();
-		fprintf(file, "%ld %u\n", lastBoot, elapsed);
-		fclose(file);
+        FILE * file = fopen(MUX_PARENTLOCK_TRACKING, "w");
+        if (!file) return triggerLock();
+        fprintf(file, "%ld %u\n", lastBoot, elapsed);
+        fclose(file);
 
         if (elapsed >= maxTimeForToday) {
             copy_file(MUX_PARENTLOCK_TRACKING, nv_counter_file); 
@@ -766,8 +752,8 @@ static int process(void)
         else if (elapsed >= fiveMinBefore && elapsed <= fiveMinBefore + 60) { 
             warn5MinLeft(five_min_warn_icon); fiveMinBefore = 86400; 
         }
-	}
-	return 0;
+    }
+    return 0;
 }
 
 void load_device_old(struct mux_device *device) {
@@ -1074,16 +1060,16 @@ void load_config_old(struct mux_config *config) {
 
 int main(int argc, const char * argv[])
 {
-	if (file_exist(CONF_DEVICE_PATH "screen/device"))
-	{
-    	load_device(&device);
-		load_config(&config);
-	}
-	else 
-	{	// This uglyness is due to MustardOS shifting files around in incompatible format
-		load_device_old(&device);
-		load_config_old(&config);
-	}
+    if (file_exist(CONF_DEVICE_PATH "screen/device"))
+    {
+        load_device(&device);
+        load_config(&config);
+    }
+    else 
+    {	// This uglyness is due to MustardOS shifting files around in incompatible format
+        load_device_old(&device);
+        load_config_old(&config);
+    }
 
     char buf[MAX_PATH_LEN] = {};
     size_t exe_path_len = readlink("/proc/self/exe", buf, sizeof(buf)-1);
@@ -1094,21 +1080,21 @@ int main(int argc, const char * argv[])
     snprintf(config_file, sizeof(config_file), "%s/parent_lock.ini", app_dir);
     
     int written = snprintf(nv_counter_file, sizeof(nv_counter_file), "%s/parent_ctr.txt", app_dir);
-	if (written < 0 || (size_t) written >= sizeof(nv_counter_file)) {
-		perror("Cannot create counter file path");
-		return 1;
-	}
-	LOG_DEBUG("muparentlock", "counter file is expected at %s", nv_counter_file);
+    if (written < 0 || (size_t) written >= sizeof(nv_counter_file)) {
+        perror("Cannot create counter file path");
+        return 1;
+    }
+    LOG_DEBUG("muparentlock", "counter file is expected at %s", nv_counter_file);
 
-	if (file_exist(MUX_PARENTAUTH)) 
-	{	// The code was entered, so let's prevent showing the lock screen again 
-		return 0;
-	}
-	// Ok, run now
-	signal(SIGTERM, sighandler);
-	signal(SIGINT, sighandler);
+    if (file_exist(MUX_PARENTAUTH)) 
+    {	// The code was entered, so let's prevent showing the lock screen again 
+        return 0;
+    }
+    // Ok, run now
+    signal(SIGTERM, sighandler);
+    signal(SIGINT, sighandler);
     signal(SIGCONT, sighandler);
 
-	LOG_DEBUG("muparentlock", "Creating parent lock process")
-	return process();
+    LOG_DEBUG("muparentlock", "Creating parent lock process")
+    return process();
 }
