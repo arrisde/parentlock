@@ -646,6 +646,7 @@ static int process(void)
     char counter_file[MAX_BUFFER_SIZE];
     if (get_actual_counter_file(counter_file, sizeof(counter_file))) return triggerLock();
 
+    bool counter_file_valid = false;
     // We need to know what day of week we are
     time_t now = time(NULL);
     if (!localtime_r(&now, &current)) return triggerLock();
@@ -655,16 +656,35 @@ static int process(void)
         struct tm previous;
         char * prev_run = read_line_char_from(counter_file, 1);
 
-        LOG_INFO("muparentlock", "Loading time tracker from %s: %s", counter_file, prev_run)
-        if (sscanf(prev_run, "%ld %u", &lastBoot, &additionalTime) != 2) { free(prev_run); return triggerLock(); }
-        free(prev_run);
+        if (strlen(prev_run) == 0) {
+            LOG_WARN("muparentlock", "Found invalid time tracker state in %s", counter_file)
+            // invalid time tracker state file usually stems from erratic reset 
+            // -> could be an attempt to temper with parent controls, so lock for today
+            additionalTime = maxTimeForToday;
+        }
+        else {
+            LOG_INFO("muparentlock", "Loading time tracker from %s: %s", counter_file, prev_run)
 
-        if (!localtime_r(&lastBoot, &previous)) return triggerLock();
+            if (sscanf(prev_run, "%ld %u", &lastBoot, &additionalTime) == 2) { 
+                if (!localtime_r(&lastBoot, &previous)) return triggerLock();
 
-        // Get current day of week and check if it's valid
-        if (previous.tm_wday != current.tm_wday || previous.tm_mday != current.tm_mday || previous.tm_mon != current.tm_mon) {
-            // Gremlins isn't cheating, let's clear the additional time
-            additionalTime = 0;
+                // Get current day of week and check if it's valid
+                if (previous.tm_wday != current.tm_wday || previous.tm_mday != current.tm_mday || previous.tm_mon != current.tm_mon) {
+                    // current day is different from day of last time tracker state 
+                    // -> reset available time
+                    additionalTime = 0;
+                }
+                else {
+                    counter_file_valid = true;
+                }
+            }
+            else {
+                LOG_WARN("muparentlock", "Found invalid time tracker state in %s", counter_file)
+                // invalid time tracker state file usually stems from erratic restart 
+                // -> could be an attempt to temper with parent controls, so lock for today
+                additionalTime = maxTimeForToday;
+            }
+            free(prev_run);
         }
     }
 
@@ -726,7 +746,19 @@ static int process(void)
     LOG_DEBUG("muparentlock", "Parent lock process created, maxTimeForToday %u/addtime %u", maxTimeForToday, additionalTime)
 
     // If we've already spent all time, let's lock too
-    if (additionalTime >= maxTimeForToday) return triggerLock();
+    if (additionalTime >= maxTimeForToday) {
+        if (!counter_file_valid) {
+            // counter file invalid or not up-to-date, so rewrite both volatile and persistent version
+            FILE * file = fopen(MUX_PARENTLOCK_TRACKING, "w");
+            if (file) {
+                fprintf(file, "%ld %u\n", lastBoot, additionalTime);
+                fclose(file);
+                copy_file(MUX_PARENTLOCK_TRACKING, nv_counter_file); 
+            }
+        }
+
+        return triggerLock();
+    }
 
     // Main process is dumb here, we are sleeping for 1mn and take the time, 
     // and write it to the counter or trigger the parental lock
